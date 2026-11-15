@@ -6,6 +6,7 @@
 class UCameraComponent;
 class UPointLightComponent;
 class UStaticMeshComponent;
+class USceneComponent;
 
 enum class EArenaCombatAction : uint8
 {
@@ -30,6 +31,7 @@ public:
     float GetHealth() const { return Health; }
     bool IsDead() const { return Health <= 0; }
     float DashCooldownRemaining() const;
+    bool IsSliding() const { return SlideTimeRemaining > 0.0f; }
     bool IsCameraFollowing() const { return bCameraFollowing; }
     int32 GetAmmo() const { return Ammo; }
     int32 GetMagazineSize() const { return MagazineSize; }
@@ -50,6 +52,13 @@ private:
     void RequestDash() { bDashRequested = true; }
     void Dash();
     void AdvanceDash(float DeltaTime);
+    void RequestSlide();
+    void TryStartSlide(float Now);
+    void AdvanceSlide(float DeltaTime);
+    void StartSprint() { bSprinting = true; }
+    void StopSprint() { bSprinting = false; }
+    void UpdateCharacterAnimation(float Now, float DeltaTime);
+    FVector GetVisualMuzzle() const;
     bool IsDashing() const { return CombatAction == EArenaCombatAction::Dashing; }
     FVector GetMoveDirection() const;
     void ResetArena();
@@ -59,6 +68,16 @@ private:
 
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Body;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Barrel;
+    UPROPERTY() TObjectPtr<class USkeletalMeshComponent> AnimatedBody;
+    UPROPERTY() TObjectPtr<UStaticMeshComponent> ShotgunPump;
+    UPROPERTY() TObjectPtr<UStaticMeshComponent> MarineArmor;
+    UPROPERTY() TObjectPtr<class UAnimSequence> IdleAnimation;
+    UPROPERTY() TObjectPtr<class UAnimSequence> RunAnimation;
+    UPROPERTY() TObjectPtr<class UAnimSequence> ShootAnimation;
+    UPROPERTY() TObjectPtr<class UAnimSequence> DuckAnimation;
+    UPROPERTY() TObjectPtr<class UAnimSequence> DeathAnimation;
+    UPROPERTY() TObjectPtr<USceneComponent> AimPivot;
+    UPROPERTY() TObjectPtr<USceneComponent> WeaponMount;
     UPROPERTY() TObjectPtr<UCameraComponent> Camera;
     UPROPERTY() TObjectPtr<UPointLightComponent> MuzzleLight;
     UPROPERTY(EditDefaultsOnly, Category="Combat", meta=(ClampMin="1"))
@@ -77,12 +96,20 @@ private:
     int32 MagazineSize = 5;
     UPROPERTY(EditDefaultsOnly, Category="Combat", meta=(ClampMin="0.1"))
     float ReloadDuration = 1.35f;
+    UPROPERTY(Config, EditDefaultsOnly, Category="Movement", meta=(ClampMin="1"))
+    float RunSpeed = 575.0f;
+    UPROPERTY(Config, EditDefaultsOnly, Category="Movement", meta=(ClampMin="1"))
+    float SprintSpeed = 750.0f;
+    UPROPERTY(Config, EditDefaultsOnly, Category="Movement", meta=(ClampMin="0.1"))
+    float SlideDuration = 0.46f;
+    UPROPERTY(Config, EditDefaultsOnly, Category="Movement", meta=(ClampMin="1"))
+    float SlideStartSpeed = 1220.0f;
     UPROPERTY(Config, EditDefaultsOnly, Category="Dash", meta=(ClampMin="0.01"))
-    float DashDuration = 0.18f;
+    float DashDuration = 0.34f;
     UPROPERTY(Config, EditDefaultsOnly, Category="Dash", meta=(ClampMin="0"))
-    float DashInvulnerabilityDuration = 0.18f;
+    float DashInvulnerabilityDuration = 0.30f;
     UPROPERTY(Config, EditDefaultsOnly, Category="Dash", meta=(ClampMin="1"))
-    float DashSpeed = 1750.0f;
+    float DashSpeed = 930.0f;
     UPROPERTY(Config, EditDefaultsOnly, Category="Dash", meta=(ClampMin="0.1"))
     float DashCooldown = 1.2f;
     UPROPERTY(Config, EditDefaultsOnly, Category="Camera")
@@ -98,6 +125,14 @@ private:
     float CameraFollowBlend = 0.0f;
     FVector LastMoveDirection = FVector::ForwardVector;
     FVector DashDirection = FVector::ForwardVector;
+    FVector SlideDirection = FVector::ForwardVector;
+    FVector CameraMovementLead = FVector::ZeroVector;
+    float SlideTimeRemaining = 0.0f;
+    float SlideBufferedUntil = 0.0f;
+    float NextSlideTime = 0.0f;
+    float NextSlideSpark = 0.0f;
+    FVector VisualStride = FVector::ZeroVector;
+    bool bSprinting = false;
     FVector2D MoveInput = FVector2D::ZeroVector;
     float Health = 100;
     float NextShotTime = 0;
@@ -118,4 +153,6 @@ private:
     float ReloadPose = 0.0f;
     bool bCameraFollowing = true;
     bool bShowCameraBounds = false;
+    bool bUsesCharacterModel = false;
+    bool bUsesWeaponModel = false;
 };

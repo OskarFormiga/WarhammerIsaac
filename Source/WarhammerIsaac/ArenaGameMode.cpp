@@ -38,6 +38,53 @@ namespace
         return Actor;
     }
 
+    UStaticMesh* LoadStationMesh(const TCHAR* Name, const TCHAR* Fallback)
+    {
+        if (UStaticMesh* Mesh = LoadObject<UStaticMesh>(nullptr,
+            *FString::Printf(TEXT("/Game/PrototypeArt/Upgrade/Station/%s.%s"), Name, Name)))
+        {
+            return Mesh;
+        }
+        return LoadObject<UStaticMesh>(nullptr,
+            *FString::Printf(TEXT("/Game/PrototypeArt/Station/%s.%s"), Fallback, Fallback));
+    }
+
+    void FitStationPiece(UStaticMeshComponent& Mesh, UStaticMesh* Model,
+        const FVector& Center, const FVector& Size, double Yaw)
+    {
+        const FBoxSphereBounds Bounds = Model->GetBounds();
+        const FVector Scale = Size / (Bounds.BoxExtent * 2.0).ComponentMax(FVector(1.0));
+        const FRotator Rotation(0, Yaw, 0);
+        Mesh.SetMobility(EComponentMobility::Movable);
+        Mesh.SetStaticMesh(Model);
+        Mesh.SetCollisionProfileName(TEXT("NoCollision"));
+        Mesh.SetWorldTransform(FTransform(Rotation, Center - Rotation.RotateVector(Bounds.Origin * Scale), Scale));
+    }
+
+    void AddStationPiece(UWorld& World, UStaticMesh* Model, const FVector& Center,
+        const FVector& Size, double Yaw = 0.0)
+    {
+        if (Model)
+        {
+            AStaticMeshActor* Actor = World.SpawnActor<AStaticMeshActor>(Center, FRotator::ZeroRotator);
+            FitStationPiece(*Actor->GetStaticMeshComponent(), Model, Center, Size, Yaw);
+        }
+    }
+
+    void DressBlock(AStaticMeshActor& Block, UStaticMesh* Model, const FVector& Size, double Yaw = 0.0)
+    {
+        if (Model)
+        {
+            UStaticMeshComponent* Mesh = NewObject<UStaticMeshComponent>(&Block);
+            Mesh->SetMobility(EComponentMobility::Movable);
+            Mesh->SetupAttachment(Block.GetRootComponent());
+            Mesh->SetAbsolute(false, false, true);
+            Mesh->RegisterComponent();
+            FitStationPiece(*Mesh, Model, Block.GetActorLocation(), Size, Yaw);
+            Block.GetStaticMeshComponent()->SetVisibility(false);
+        }
+    }
+
     APointLight* AddLamp(UWorld& World, const FVector& Position,
         const FLinearColor& Color = FLinearColor(1, 0.43f, 0.14f), float Intensity = 19000)
     {
@@ -70,6 +117,16 @@ void AArenaGameMode::StartPlay()
     UWorld& World = *GetWorld();
     if (UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube")))
     {
+        UStaticMesh* FloorPanel = LoadStationMesh(TEXT("Platform_DarkPlates"), TEXT("floor-detail"));
+        UStaticMesh* WallPanel = LoadStationMesh(TEXT("WallAstra_Straight"), TEXT("wall-detail"));
+        UStaticMesh* TallContainer = LoadStationMesh(TEXT("Prop_Crate3"), TEXT("container-tall"));
+        UStaticMesh* WideContainer = LoadStationMesh(TEXT("Prop_Crate4"), TEXT("container-wide"));
+        UStaticMesh* Console = LoadStationMesh(TEXT("Prop_Computer"), TEXT("computer-wide"));
+        UStaticMesh* PlanetTable = LoadStationMesh(TEXT("Prop_Vent_Big"), TEXT("table-display-planet"));
+        UStaticMesh* Rail = LoadStationMesh(TEXT("ShortWall_MetalPlates_Straight"), TEXT("rail"));
+        UStaticMesh* Door = LoadStationMesh(TEXT("Door_DarkMetal"), TEXT("door-double-closed"));
+        UStaticMesh* CenterFloor = LoadStationMesh(TEXT("Platform_CenterPlate"), TEXT("floor-detail"));
+        UStaticMesh* WallPipes = LoadStationMesh(TEXT("Column_Pipes"), TEXT("wall-detail"));
         const FLinearColor Floor(0.055f, 0.060f, 0.075f);
         const FLinearColor Stone(0.12f, 0.11f, 0.14f);
         const FLinearColor Trim(0.20f, 0.16f, 0.11f);
@@ -102,6 +159,7 @@ void AArenaGameMode::StartPlay()
                 {
                     Block(FVector(1380, Side * 820, 180), FVector(0.4, 11.6, 3.6), Stone);
                     Block(FVector(1700, Side * 244, 36), FVector(6, 0.35, 0.72), Trim);
+                    AddStationPiece(World, Rail, Center + FVector(1700, Side * 244, 86), FVector(580, 38, 42));
                     Block(FVector(1260, Side * 220, 100), FVector(0.65, 0.55, 2), Trim);
                 }
             }
@@ -109,7 +167,9 @@ void AArenaGameMode::StartPlay()
             {
                 Block(FVector(1700, 0, -20), FVector(6, 4.8, 0.4), Floor);
                 FExit& Exit = Exits.AddDefaulted_GetRef();
-                Exit.Gate = Block(FVector(1380, 0, 140), FVector(0.4, 4.8, 2.8), Trim);
+                AStaticMeshActor* Gate = Block(FVector(1380, 0, 140), FVector(0.4, 4.8, 2.8), Trim);
+                DressBlock(*Gate, Door, FVector(480, 55, 280), 90);
+                Exit.Gate = Gate;
                 const FLinearColor Mint(0.08f, 0.85f, 0.46f);
                 Exit.Light = AddLamp(World, Center + FVector(1460, 0, 165), Mint, 0);
                 for (double X : {1220.0, 1400.0, 1580.0, 1760.0, 1940.0})
@@ -123,16 +183,42 @@ void AArenaGameMode::StartPlay()
                     }
                 }
             }
-            for (int32 Line = -5; Line <= 5; ++Line)
+            for (int32 Panel = -2; Panel <= 2; ++Panel)
             {
-                const double Offset = Line * 250.0;
-                const FLinearColor Grout(0.08f, 0.09f, 0.11f);
-                Block(FVector(Offset, 0, 0.5), FVector(0.025, 27, 0.01), Grout, false);
-                Block(FVector(0, Offset, 0.5), FVector(27, 0.025, 0.01), Grout, false);
+                AddStationPiece(World, WallPanel, Center + FVector(Panel * 540, 1335, 178),
+                    FVector(530, 95, 350), 180);
+            }
+            for (double X : {-805.0, 805.0})
+            {
+                AddStationPiece(World, WallPipes, Center + FVector(X, 1260, 162), FVector(115, 105, 324));
+            }
+            for (int32 X = -2; X <= 2; ++X)
+            {
+                for (int32 Y = -2; Y <= 2; ++Y)
+                {
+                    const double Yaw = (X + Y) % 2 == 0 ? 0.0 : 90.0;
+                    AddStationPiece(World, X == 0 || Y == 0 ? CenterFloor : FloorPanel, Center + FVector(X * 540, Y * 540, 7),
+                        FVector(532, 532, 12), Yaw);
+                }
+            }
+            for (double Edge : {-1.0, 1.0})
+            {
+                for (double X : {-900.0, -620.0, -340.0, 340.0, 620.0, 900.0})
+                {
+                    Block(FVector(X, Edge * 812, 15), FVector(1.55, 0.09, 0.02), Trim, false);
+                }
             }
             const double Side = Index == 1 ? -1.0 : 1.0;
-            Block(FVector(350, Side * 250, 65), FVector(1.5, 1.5, 1.3), Stone);
-            Block(FVector(-600, Side * 500, 65), FVector(1.5, 1.5, 1.3), Stone);
+            AStaticMeshActor* MainCover = Block(FVector(350, Side * 250, 65), FVector(1.5, 1.5, 1.3), Stone);
+            DressBlock(*MainCover, Index == 1 ? PlanetTable : WideContainer, FVector(150, 150, 130));
+            AStaticMeshActor* SecondaryCover = Block(FVector(-600, Side * 500, 65), FVector(1.5, 1.5, 1.3), Stone);
+            DressBlock(*SecondaryCover, Index == 1 ? Console : TallContainer, FVector(150, 150, 130), 90);
+            AStaticMeshActor* SideCover = Block(FVector(700, -Side * 840, 62), FVector(2.4, 1.3, 1.24), Stone);
+            DressBlock(*SideCover, Index == 2 ? Console : WideContainer, FVector(240, 130, 124));
+            const FLinearColor RoomLight = Index == 0 ? FLinearColor(0.16f, 0.53f, 1.0f)
+                : Index == 1 ? FLinearColor(0.16f, 0.88f, 0.63f) : FLinearColor(1.0f, 0.24f, 0.16f);
+            AddLamp(World, Center + FVector(350, Side * 250, 220), RoomLight, 36000);
+            AddLamp(World, Center + FVector(-750, -800, 175), RoomLight, 28500);
             AddLamp(World, Center + FVector(1150, -500, 190));
             AddLamp(World, Center + FVector(-500, 1150, 190));
         }
@@ -284,8 +370,8 @@ void AArenaGameMode::SpawnEncounter()
     bRewardChosen = false;
     Enemies.Reset();
     const FVector Positions[] = {
-        FVector(750, -650, 84), FVector(900, 550, 84),
-        FVector(-450, 950, 84), FVector(550, 950, 84),
+        FVector(750, -650, 84), FVector(540, 420, 84),
+        FVector(-450, 950, 84), FVector(-830, 290, 84),
         FVector(1050, -200, 84)
     };
     const int32 Count = ActiveRoom == RoomCount - 1 ? UE_ARRAY_COUNT(Positions) : 4;
@@ -294,11 +380,13 @@ void AArenaGameMode::SpawnEncounter()
         if (AArenaEnemy* Enemy = GetWorld()->SpawnActor<AArenaEnemy>(
             RoomCenter(ActiveRoom) + Positions[Index], FRotator::ZeroRotator))
         {
-            if (Index == 1 || (ActiveRoom > 0 && Index >= 3))
-            {
-                Enemy->SetRanged();
-            }
-            Enemy->SetHealth(EnemyHealth);
+            const EArenaEnemyType Type = Index == 1 || Index == 4 ? EArenaEnemyType::Turret
+                : Index == 3 || (ActiveRoom > 0 && Index == 2) ? EArenaEnemyType::Rover
+                : EArenaEnemyType::Alien;
+            Enemy->SetType(Type);
+            const float HealthScale = Type == EArenaEnemyType::Turret ? 1.30f
+                : Type == EArenaEnemyType::Rover ? 0.85f : 1.0f;
+            Enemy->SetHealth(EnemyHealth * HealthScale);
             Enemies.Add(Enemy);
         }
     }
@@ -382,7 +470,7 @@ void AArenaHUD::DrawHUD()
                 : TEXT("SALA DESPEJADA   |   Sigue las luces verdes"));
     }
     DrawText(Status, FLinearColor(0.92f, 0.78f, 0.5f), 24, 24, nullptr, 1.4f);
-    DrawText(TEXT("WASD  Mover    Raton  Apuntar    Clic  Disparar    E  Recargar    Espacio  Dash    R  Reiniciar"),
+    DrawText(TEXT("WASD Mover   Shift Correr   Ctrl Deslizar   Espacio Dash   Raton Apuntar   Clic Disparar   E Recargar   R Reiniciar"),
         FLinearColor::White, 24, 54);
     DrawText(Player->IsCameraFollowing() ? TEXT("Camara en seguimiento  |  F2 zona") : TEXT("Fuera de la zona de seguimiento  |  F2 zona"),
         FLinearColor(0.65f, 0.7f, 0.75f), 24, 78);

@@ -1,0 +1,49 @@
+newmtl Gunmetal
+Kd 0.095 0.12 0.15
+Ks .35 .35 .35
+Ns 70
+
+newmtl MachinedSteel
+Kd 0.31 0.37 0.41
+Ks .35 .35 .35
+Ns 70
+
+newmtl Polymer
+Kd 0.035 0.045 0.055
+Ks .35 .35 .35
+Ns 70
+
+newmtl HazardOrange
+Kd 0.84 0.24 0.055
+Ks .35 .35 .35
+Ns 70
+
+newmtl Copper
+Kd 0.59 0.33 0.11
+Ks .35 .35 .35
+Ns 70
+
+newmtl MarineCeramic
+Kd 0.19 0.3 0.3
+Ks .35 .35 .35
+Ns 70
+
+newmtl MarineEdge
+Kd 0.47 0.55 0.49
+Ks .35 .35 .35
+Ns 70
+
+newmtl MarineBrass
+Kd 0.7 0.49 0.21
+Ks .35 .35 .35
+Ns 70
+
+newmtl MarineDark
+Kd 0.045 0.071 0.083
+Ks .35 .35 .35
+Ns 70
+
+newmtl MarinePower
+Kd 0.09 0.63 0.79
+Ks .35 .35 .35
+Ns 70

@@ -4,7 +4,11 @@
 #include "ArenaEnemy.generated.h"
 
 class UStaticMeshComponent;
+class UStaticMesh;
+class USceneComponent;
 class AArenaPawn;
+
+enum class EArenaEnemyType : uint8 { Alien, Turret, Rover };
 
 UCLASS()
 class AArenaEnemy : public AActor
@@ -14,14 +18,24 @@ public:
     AArenaEnemy();
     virtual void Tick(float DeltaTime) override;
     void SetHealth(float Health);
-    void SetRanged() { bRanged = true; }
+    void SetType(EArenaEnemyType Type);
     float GetHealthFraction() const { return RemainingHealth / MaxHealth; }
     virtual float TakeDamage(float Amount, const FDamageEvent& Event,
         AController* InstigatorController, AActor* Causer) override;
 private:
     bool HasLineOfSight(const AArenaPawn& Player) const;
-    void Shoot(const AArenaPawn& Player);
+    void Shoot();
+    void UpdateModelAnimation(float Now, bool bMoving);
+    void MoveAroundCover(FVector Direction, float DeltaTime);
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Body;
+    UPROPERTY() TObjectPtr<class USkeletalMeshComponent> Robot;
+    UPROPERTY() TObjectPtr<class UAnimSequence> RobotIdle;
+    UPROPERTY() TObjectPtr<class UAnimSequence> RobotMove;
+    UPROPERTY() TObjectPtr<class UAnimSequence> RobotCharge;
+    UPROPERTY() TObjectPtr<class UAnimSequence> RobotAttack;
+    UPROPERTY() TObjectPtr<USceneComponent> Facing;
+    UPROPERTY() TObjectPtr<UStaticMesh> TurretModel;
+    UPROPERTY() TObjectPtr<UStaticMesh> RoverModel;
     UPROPERTY(EditDefaultsOnly, Category="Combat")
     float MoveSpeed = 155;
     UPROPERTY(EditDefaultsOnly, Category="Combat")
@@ -35,7 +49,10 @@ private:
     float AttackAt = 0;
     float NextAttackTime = 0;
     float HitFlashUntil = 0;
+    float RobotAttackUntil = 0;
     FVector AttackCenter = FVector::ZeroVector;
     bool bWindingUp = false;
-    bool bRanged = false;
+    FVector AttackDirection = FVector::ForwardVector;
+    EArenaEnemyType Type = EArenaEnemyType::Alien;
+    bool bUsesModel = false;
 };

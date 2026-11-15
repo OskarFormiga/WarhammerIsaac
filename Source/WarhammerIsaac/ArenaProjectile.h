@@ -13,7 +13,9 @@ class AArenaProjectile : public AActor
 
 public:
     AArenaProjectile();
-    void Launch(float Speed, float Damage, float Lifetime, bool bHostile = false);
+    virtual void Tick(float DeltaTime) override;
+    void Launch(float Speed, float Damage, float Lifetime, bool bHostile = false, bool bSpreadShot = false);
+    void SetPlayerTracer(const FVector& Muzzle, float Visibility);
 
 private:
     UFUNCTION()
@@ -22,5 +24,14 @@ private:
     UPROPERTY()
     TObjectPtr<UProjectileMovementComponent> Movement;
 
+    UPROPERTY() TObjectPtr<class UStaticMeshComponent> Core;
+    UPROPERTY() TObjectPtr<class UStaticMeshComponent> Tracer;
+    UPROPERTY() TObjectPtr<class UMaterialInterface> EmissiveMaterial;
+    FLinearColor ShotColor = FLinearColor::White;
+    FVector LaunchPoint = FVector::ZeroVector;
+    FVector VisualOffset = FVector::ZeroVector;
+    float TracerLength = 0.0f;
+    float TracerWidth = 0.0f;
+    bool bShowImpact = true;
     float ImpactDamage = 0.0f;
 };
